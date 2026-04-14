@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <!--モバイル Safari / iOS PWA（ホーム画面に追加）向け -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="ブラウザで画像を選び C2PA（Content Credentials）を確認する検証用 PWA。">
+  <meta name="theme-color" content="#3949AB">
+
+  <!-- Chromium系 PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- iOS Safari: フルスクリーン（スタンドアロン）表示 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- default | black | black-translucent -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="C2PAプローブ">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>C2PA プローブ（PWA）</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!--
+    c2pa-js (同一オリジン dist/) を lazy init して window.c2paAnalyze を公開。
+    Dart の dart:js_interop からこの関数を呼ぶ。
+  -->
+  <script>
+    (function () {
+      var _instance = null;
+      var _initPromise = null;
+
+      function ensureC2pa() {
+        if (!_initPromise) {
+          _initPromise = import('./dist/c2pa.esm.min.js').then(function (mod) {
+            return mod.createC2pa({
+              wasmSrc: './dist/assets/wasm/toolkit_bg.wasm',
+              workerSrc: './dist/c2pa.worker.min.js',
+            });
+          }).then(function (inst) {
+            _instance = inst;
+          });
+        }
+        return _initPromise;
+      }
+
+      window.c2paAnalyze = async function (uint8Array, mimeType) {
+        await ensureC2pa();
+        var blob = new Blob([uint8Array], { type: mimeType });
+        var file = new File([blob], 'image', { type: mimeType });
+        var result = await _instance.read(file);
+        var manifestStore = result.manifestStore;
+
+        if (!manifestStore) {
+          return JSON.stringify({ hasManifest: false });
+        }
+
+        var active = manifestStore.activeManifest;
+        var sig = active && active.signatureInfo;
+
+        var actions = [];
+        var manifests = manifestStore.manifests || {};
+        Object.values(manifests).forEach(function (m) {
+          var data = (m && m.assertions && m.assertions.data) || [];
+          data.forEach(function (a) {
+            if (a && a.label && a.label.startsWith('c2pa.actions')) {
+              var acts = (a.data && a.data.actions) || [];
+              acts.forEach(function (act) {
+                actions.push({
+                  action: act.action || '',
+                  // フルURL の末尾 slug のみ返す
+                  digitalSourceType: act.digitalSourceType
+                    ? act.digitalSourceType.split('/').pop()
+                    : null,
+                });
+              });
+            }
+          });
+        });
+
+        return JSON.stringify({
+          hasManifest: true,
+          title: (active && active.title) || null,
+          generator: (active && (active.claimGenerator || (sig && sig.common_name) || (sig && sig.issuer))) || null,
+          issuer: (sig && sig.issuer) || null,
+          actions: actions,
+        });
+      };
+    })();
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
