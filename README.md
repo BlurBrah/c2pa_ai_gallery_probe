@@ -21,32 +21,11 @@ flutter run -d chrome
 
 ## GitHub Pages
 
-このディレクトリを単独リポジトリ `c2pa_ai_gallery_probe` として切り出す前提で、GitHub Pages 用 workflow を同梱しています。
+Web ビルドのデプロイは `.github/workflows/deploy-pages.yml` が `main` への push で実行します（初回のみリポジトリの **Settings → Pages** で source を **GitHub Actions** にしてください）。
 
-公開 URL 想定:
+公開 URL: [https://blurbrah.github.io/c2pa_ai_gallery_probe/](https://blurbrah.github.io/c2pa_ai_gallery_probe/)
 
-```text
-https://blurbrah.github.io/c2pa_ai_gallery_probe/
-```
-
-### 単独リポジトリ化の最短手順
-
-```bash
-cd ai-playground/c2pa_ai_gallery_probe
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-gh repo create BlurBrah/c2pa_ai_gallery_probe --public --source=. --remote=origin --push
-```
-
-### Pages 設定
-
-1. GitHub 側で repository を作成
-2. `Settings > Pages` で build source を `GitHub Actions` にする
-3. `main` に push すると `.github/workflows/deploy-pages.yml` が `flutter build web` を実行して公開
-
-workflow では repository 名から `--base-href` を自動計算するので、`c2pa_ai_gallery_probe` のまま公開する限り追加修正は不要です。
+workflow 内でリポジトリ名から `--base-href` を組み立てているため、リポジトリ名を `c2pa_ai_gallery_probe` のまま使う限り追加の base-href 修正は不要です。
 
 ## Notes
 

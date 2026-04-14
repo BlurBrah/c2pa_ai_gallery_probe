@@ -38,6 +38,10 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href "${BASE_HREF}"
 
+      # Skip Jekyll if Pages treats the upload as a Jekyll site
+      - name: Disable Jekyll for static artifact
+        run: touch build/web/.nojekyll
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
